@@ -75,7 +75,9 @@ A voice-controlled AI assistant built with Pipecat that integrates with Home Ass
 uv run bot.py
 ```
 
-Open http://localhost:7860 in your browser and click `Connect` to start talking to your assistant.
+Open http://localhost:7860/voice/client in your browser and click `Connect` to start talking to your assistant.
+
+To access from other devices on your network, use `http://YOUR_IP:7860/voice/client`
 
 > 💡 First run note: Initial startup takes ~20 seconds as Pipecat downloads required models.
 
