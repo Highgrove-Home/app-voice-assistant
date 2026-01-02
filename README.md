@@ -1,40 +1,45 @@
-# Pipecat Quickstart
+# Voice Assistant with Home Assistant Integration
 
-Build and deploy your first voice AI bot in under 10 minutes. Develop locally, then scale to production on Pipecat Cloud.
+A voice-controlled AI assistant built with Pipecat that integrates with Home Assistant for smart home control. Features room-aware device control, timer management, and real-time sensor monitoring.
 
-**Two steps**: [🏠 Local Development](#run-your-bot-locally) → [☁️ Production Deployment](#deploy-to-production)
+## Features
 
-## Step 1: Local Development (5 min)
+- **Smart Home Control**: Control lights, switches, thermostats, and other Home Assistant devices via voice
+- **Room-Aware**: Automatically scopes device control to the configured room (e.g., "turn off the lights" only affects bedroom lights)
+- **Real-time Sensors**: Query temperature, humidity, CO2, and other sensor data
+- **Timer Management**: Set, cancel, and check voice-controlled timers with automatic notifications
+- **WebSocket Integration**: Efficient persistent connection to Home Assistant for area/device registry access
+- **Anti-Hallucination**: Configured to only provide verified data through function calls
 
-### Prerequisites
+## Prerequisites
 
-#### Environment
+### Environment
 
-- Python 3.10 or later
+- Python 3.10-3.13 (3.14 not yet supported due to onnxruntime dependencies)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager installed
 
-#### AI Service API keys
-
-You'll need API keys from three services:
+### AI Service API Keys
 
 - [Deepgram](https://console.deepgram.com/signup) for Speech-to-Text
 - [OpenAI](https://auth.openai.com/create-account) for LLM inference
 - [Cartesia](https://play.cartesia.ai/sign-up) for Text-to-Speech
 
-> 💡 **Tip**: Sign up for all three now. You'll need them for both local and cloud deployment.
+### Home Assistant
 
-### Setup
+- Home Assistant server (2025.12.5 or later recommended)
+- Long-lived access token ([create one here](https://www.home-assistant.io/docs/authentication/#your-account-profile))
+- Configured areas/rooms with assigned devices
 
-Navigate to the quickstart directory and set up your environment.
+## Setup
 
 1. Clone this repository
 
    ```bash
-   git clone https://github.com/pipecat-ai/pipecat-quickstart.git
-   cd pipecat-quickstart
+   git clone https://github.com/Highgrove-Home/app-voice-assistant.git
+   cd app-voice-assistant
    ```
 
-2. Configure your API keys:
+2. Configure environment variables
 
    Create a `.env` file:
 
@@ -42,132 +47,119 @@ Navigate to the quickstart directory and set up your environment.
    cp env.example .env
    ```
 
-   Then, add your API keys:
+   Add your API keys and Home Assistant configuration:
 
    ```ini
+   # AI Service API Keys
    DEEPGRAM_API_KEY=your_deepgram_api_key
    OPENAI_API_KEY=your_openai_api_key
    CARTESIA_API_KEY=your_cartesia_api_key
+
+   # Home Assistant Configuration
+   HOME_ASSISTANT_URL=http://homeassistant.local:8123
+   HOME_ASSISTANT_TOKEN=your_home_assistant_long_lived_access_token
+   ROOM_NAME=bedroom
    ```
 
-3. Set up a virtual environment and install dependencies
+3. Install dependencies
 
    ```bash
+   uv python install 3.13
+   uv python pin 3.13
    uv sync
    ```
 
-### Run your bot locally
+## Running the Bot
 
 ```bash
 uv run bot.py
 ```
 
-**Open http://localhost:7860 in your browser** and click `Connect` to start talking to your bot.
+Open http://localhost:7860 in your browser and click `Connect` to start talking to your assistant.
 
-> 💡 First run note: The initial startup may take ~20 seconds as Pipecat downloads required models and imports.
+> 💡 First run note: Initial startup takes ~20 seconds as Pipecat downloads required models.
 
-🎉 **Success!** Your bot is running locally. Now let's deploy it to production so others can use it.
+## Voice Commands
 
----
+### Smart Home Control
 
-## Step 2: Deploy to Production (5 min)
+- "Turn on the lights"
+- "Turn off the fan"
+- "What's the temperature?"
+- "What's the humidity?"
+- "Which lights are on?"
+- "Set the thermostat to 72 degrees"
 
-Transform your local bot into a production-ready service. Pipecat Cloud handles scaling, monitoring, and global deployment.
+### Timer Management
 
-### Prerequisites
+- "Set a timer for 10 minutes"
+- "Set a pasta timer for 8 minutes"
+- "Cancel the pasta timer"
+- "List all timers"
+- "How much time is left on the timer?"
 
-1. [Sign up for Pipecat Cloud](https://pipecat.daily.co/sign-up).
+## Architecture
 
-2. Set up Docker for building your bot image:
+### Components
 
-   - **Install [Docker](https://www.docker.com/)** on your system
-   - **Create a [Docker Hub](https://hub.docker.com/) account**
-   - **Login to Docker Hub:**
+- **bot.py**: Main entry point, pipeline configuration, and event handlers
+- **home_assistant.py**: Home Assistant API client with WebSocket support and function definitions
+- **timer_manager.py**: Asyncio-based timer management with TTS announcements
 
-     ```bash
-     docker login
-     ```
+### Home Assistant Integration
 
-3. Install the Pipecat CLI
+The assistant uses:
+- **REST API** for entity states and service calls
+- **WebSocket API** for area/device/entity registry data (persistent connection)
+- **Area filtering** to scope device control to the configured room
 
-   ```bash
-   uv tool install pipecat-ai-cli
-   ```
+### Room-Aware Control
 
-   > Tip: You can run the `pipecat` CLI using the `pc` alias.
+Devices are filtered by Home Assistant areas:
+1. Fetches area registry via WebSocket to find the configured room's area_id
+2. Fetches device and entity registries to map entities to areas
+3. Filters all queries/controls to only include entities in the configured room
+4. Only accesses other rooms when explicitly requested by the user
 
-### Configure your deployment
+## Configuration
 
-The `pcc-deploy.toml` file tells Pipecat Cloud how to run your bot. **Update the image field** with your Docker Hub username by editing `pcc-deploy.toml`.
+### VAD Settings
 
-```ini
-agent_name = "quickstart"
-image = "YOUR_DOCKERHUB_USERNAME/quickstart:0.1"  # 👈 Update this line
-secret_set = "quickstart-secrets"
+Voice Activity Detection configured in `bot.py`:
+- `stop_secs: 0.1` - Fast end-of-turn detection
+- `start_secs: 0.1` - Quick speech start detection
+- `confidence: 0.6` - Balanced sensitivity
 
-[scaling]
-	min_agents = 1
-```
+### System Prompt
 
-**Understanding the TOML file settings:**
+The assistant is configured to:
+- Be concise and direct in responses
+- Never hallucinate or make up information
+- Always use function calls for real-time data
+- Default to current room for all device operations
+- Only access other rooms when explicitly requested
 
-- `agent_name`: Your bot's name in Pipecat Cloud
-- `image`: The Docker image to deploy (format: `username/image:version`)
-- `secret_set`: Where your API keys are stored securely
-- `min_agents`: Number of bot instances to keep ready (1 = instant start)
+## Troubleshooting
 
-> 💡 Tip: [Set up `image_credentials`](https://docs.pipecat.ai/deployment/pipecat-cloud/fundamentals/secrets#image-pull-secrets) in your TOML file for authenticated image pulls
+### Python Version Issues
 
-### Log in to Pipecat Cloud
-
-To start using the CLI, authenticate to Pipecat Cloud:
-
+If you see `onnxruntime` wheel errors:
 ```bash
-pipecat cloud auth login
+uv python install 3.13
+uv python pin 3.13
+uv sync
 ```
 
-You'll be presented with a link that you can click to authenticate your client.
+### Room Filtering Not Working
 
-### Configure secrets
+- Verify `ROOM_NAME` matches a Home Assistant area name (case-insensitive)
+- Check startup logs for "Found area 'bedroom' with ID: xyz"
+- Ensure devices are assigned to areas in Home Assistant
 
-Upload your API keys to Pipecat Cloud's secure storage:
+### Sensor Not Found
 
-```bash
-pipecat cloud secrets set quickstart-secrets --file .env
-```
+The assistant needs actual entity IDs. Check startup logs for "Key sensors:" to see available sensors in your room.
 
-This creates a secret set called `quickstart-secrets` (matching your TOML file) and uploads all your API keys from `.env`.
+## License
 
-### Build and deploy
-
-Build your Docker image and push to Docker Hub:
-
-```bash
-pipecat cloud docker build-push
-```
-
-Deploy to Pipecat Cloud:
-
-```bash
-pipecat cloud deploy
-```
-
-### Connect to your agent
-
-1. Open your [Pipecat Cloud dashboard](https://pipecat.daily.co/)
-2. Select your `quickstart` agent → **Sandbox**
-3. Allow microphone access and click **Connect**
-
----
-
-## What's Next?
-
-**🔧 Customize your bot**: Modify `bot.py` to change personality, add functions, or integrate with your data  
-**📚 Learn more**: Check out [Pipecat's docs](https://docs.pipecat.ai/) for advanced features  
-**💬 Get help**: Join [Pipecat's Discord](https://discord.gg/pipecat) to connect with the community
-
-### Troubleshooting
-
-- **Browser permissions**: Allow microphone access when prompted
-- **Connection issues**: Try a different browser or check VPN/firewall settings
-- **Audio issues**: Verify microphone and speakers are working and not muted
+BSD 2-Clause License (inherited from Pipecat)
