@@ -1,0 +1,14 @@
+name: Deploy Voice Assistant to Pi
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy to Pi
+        run: |
+          /home/zammitjames/deploy_voice_assistant.sh
