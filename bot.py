@@ -252,7 +252,5 @@ if __name__ == "__main__":
         sys.argv.extend(["--host", "0.0.0.0"])
     if "--port" not in sys.argv:
         sys.argv.extend(["--port", "7860"])
-    if "--path" not in sys.argv:
-        sys.argv.extend(["--path", "/voice/client"])
 
     main()
