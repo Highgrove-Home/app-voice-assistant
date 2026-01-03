@@ -45,7 +45,12 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 logger.info("✅ Silero VAD model loaded")
 
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import LLMRunFrame, LLMSetToolsFrame, TTSSpeakFrame
+from pipecat.frames.frames import (
+    LLMRunFrame,
+    LLMSetToolsFrame,
+    OutputTransportMessageFrame,
+    TTSSpeakFrame,
+)
 
 from openwakeword_processor import OpenWakeWordProcessor
 
@@ -238,7 +243,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
             # Handle ping/pong health check
             if message_data.get("type") == "ping":
                 logger.debug("Received ping, sending pong")
-                await transport.send_app_message(json.dumps({"type": "pong"}), sender)
+                pong_frame = OutputTransportMessageFrame(
+                    message={"type": "pong", "timestamp": message_data.get("timestamp")}
+                )
+                await task.queue_frame(pong_frame)
         except Exception as e:
             logger.error(f"Error handling app message: {e}")
 
