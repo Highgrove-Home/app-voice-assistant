@@ -12,6 +12,15 @@ echo "📦 Installing dependencies..."
 cd "$SCRIPT_DIR"
 uv sync
 
+# Install systemd service if it doesn't exist
+if ! systemctl is-enabled voice-assistant.service &> /dev/null; then
+    echo "📝 Installing systemd service..."
+    sudo cp voice-assistant.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable voice-assistant.service
+    echo "✅ Service installed and enabled"
+fi
+
 # Restart the systemd service
 echo "♻️  Restarting voice-assistant service..."
 sudo systemctl restart voice-assistant.service
