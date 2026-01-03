@@ -10,6 +10,9 @@ Environment="PATH=/home/zammitjames/.local/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/home/zammitjames/.local/bin/uv run bot.py
 Restart=always
 RestartSec=5
+TimeoutStopSec=5
+KillMode=mixed
+KillSignal=SIGTERM
 
 [Install]
 WantedBy=multi-user.target
