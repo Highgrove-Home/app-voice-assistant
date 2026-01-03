@@ -146,6 +146,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         keepalive_timeout=5  # Stay awake for 5 seconds after last interaction
     )
 
+    # Enable debug logging for wake filter
+    import logging
+    logging.getLogger("pipecat.processors.filters.wake_check_filter").setLevel(logging.DEBUG)
+
     pipeline = Pipeline(
         [
             transport.input(),  # Transport user input
