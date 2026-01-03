@@ -141,8 +141,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
     # Wake word filter - only respond when wake phrase is detected
+    # Note: Don't include punctuation - the matcher handles word boundaries
     wake_filter = WakeCheckFilter(
-        wake_phrases=["hey jarvis", "hey, jarvis", "alexa,", "ok jarvis", "alexa", "hey friday"],
+        wake_phrases=["hey jarvis", "ok jarvis", "alexa", "hey friday", "jarvis"],
         keepalive_timeout=5  # Stay awake for 5 seconds after last interaction
     )
 
