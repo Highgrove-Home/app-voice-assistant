@@ -144,7 +144,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     # Audio-based wake word detection using OpenWakeWord
     logger.info("Initializing OpenWakeWord wake word detection...")
     wake_processor = OpenWakeWordProcessor(
-        wake_words=["hey_jarvis", "alexa"],  # OpenWakeWord model names
+        wake_words=["alexa"],                 # Use alexa for now (hey_jarvis requires custom model)
         threshold=0.5,                        # Confidence threshold (0.3-0.7)
         keepalive_timeout=5.0,                # Stay awake for 5 seconds
         inference_framework="onnx"            # ONNX supports Python 3.13
@@ -210,7 +210,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
         # Explain wake word usage
         frames_to_queue.append(
-            TTSSpeakFrame("Hello! Say 'hey Jarvis' or 'Alexa' to wake me up.")
+            TTSSpeakFrame("Hello! Say 'Alexa' to wake me up.")
         )
 
         # Kick off the conversation.

@@ -26,6 +26,10 @@ uv python install 3.11
 uv python pin 3.11
 uv sync
 
+# Download OpenWakeWord models
+echo "📥 Downloading wake word models..."
+uv run python -c "from openwakeword.model import Model; Model(wakeword_models=['alexa'])" || echo "⚠️  Model download failed, will retry on first run"
+
 # Install systemd service if it doesn't exist
 if ! systemctl is-enabled voice-assistant.service &> /dev/null; then
     echo "📝 Installing systemd service..."
