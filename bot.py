@@ -149,6 +149,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     # Enable debug logging for wake filter
     import logging
     logging.getLogger("pipecat.processors.filters.wake_check_filter").setLevel(logging.DEBUG)
+    # Suppress harmless Deepgram finalization warnings
+    logging.getLogger("deepgram.clients.common.v1.abstract_async_websocket").setLevel(logging.CRITICAL)
 
     pipeline = Pipeline(
         [
