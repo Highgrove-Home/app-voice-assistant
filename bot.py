@@ -147,7 +147,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         wake_words=["hey_jarvis", "alexa"],  # OpenWakeWord model names
         threshold=0.5,                        # Confidence threshold (0.3-0.7)
         keepalive_timeout=5.0,                # Stay awake for 5 seconds
-        inference_framework="tflite"          # Faster on Raspberry Pi
+        inference_framework="onnx"            # ONNX supports Python 3.13
     )
     logger.info("✅ Wake word processor ready")
 

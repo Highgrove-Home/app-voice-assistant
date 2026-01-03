@@ -23,7 +23,7 @@ class OpenWakeWordProcessor(FrameProcessor):
         wake_words: List of wake word model names (e.g., ["hey_jarvis", "alexa"])
         threshold: Detection confidence threshold (0.0-1.0, default 0.5)
         keepalive_timeout: Seconds to stay awake after detection (default 5.0)
-        inference_framework: "tflite" (default, faster) or "onnx"
+        inference_framework: "onnx" (default, better Python 3.13 support) or "tflite"
         chunk_size_samples: Audio chunk size in samples (default 1280 = 80ms at 16kHz)
     """
 
@@ -32,7 +32,7 @@ class OpenWakeWordProcessor(FrameProcessor):
         wake_words: list[str] = ["hey_jarvis"],
         threshold: float = 0.5,
         keepalive_timeout: float = 5.0,
-        inference_framework: str = "tflite",
+        inference_framework: str = "onnx",
         chunk_size_samples: int = 1280,
     ):
         super().__init__()
