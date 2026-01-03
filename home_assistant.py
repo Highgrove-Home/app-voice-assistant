@@ -428,6 +428,30 @@ class HomeAssistantClient:
         prefix = f"In the {self.room_name}: " if self.room_name else "Available devices: "
         summary = prefix + ", ".join(summary_parts)
 
+        # Add detailed light information (entity IDs and friendly names)
+        lights = self.get_entities_by_domain("light", room_only=True)
+        if lights:
+            light_details = []
+            for light in lights:
+                entity_id = light.get("entity_id")
+                friendly_name = light.get("attributes", {}).get("friendly_name", entity_id)
+                light_details.append(f"{entity_id} ({friendly_name})")
+
+            if light_details:
+                summary += f"\n\nLights: {', '.join(light_details)}"
+
+        # Add detailed switch information
+        switches = self.get_entities_by_domain("switch", room_only=True)
+        if switches:
+            switch_details = []
+            for switch in switches:
+                entity_id = switch.get("entity_id")
+                friendly_name = switch.get("attributes", {}).get("friendly_name", entity_id)
+                switch_details.append(f"{entity_id} ({friendly_name})")
+
+            if switch_details:
+                summary += f"\n\nSwitches: {', '.join(switch_details)}"
+
         # Add detailed sensor information (temperature, humidity, etc.)
         sensors = self.get_entities_by_domain("sensor", room_only=True)
         if sensors:

@@ -114,6 +114,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         system_prompt += f"\n\nYou are located in the {room_name}. IMPORTANT: ALL device queries and controls default to THIS ROOM ONLY unless the user explicitly mentions another room."
         system_prompt += f"\n\n{ha_summary}"
         system_prompt += "\n\nWhen the user asks about devices (e.g., 'which lights are on?', 'turn off the lights'), they mean devices in the current room. Only access devices in other rooms if explicitly requested."
+        system_prompt += "\n\nCRITICAL: When controlling devices, you MUST use the EXACT entity_id values listed above. DO NOT guess or make up entity IDs. For example, if the user says 'turn on the ultimate backlight', use the entity_id 'light.ultimatesensor_back_light' from the list above, NOT a made-up ID like 'light.ultimate_backlight'."
         system_prompt += "\n\nCRITICAL: You MUST use the get_device_state function to retrieve real-time sensor data (temperature, humidity, CO2, etc.). NEVER guess or make up sensor values. If the user asks about temperature, humidity, CO2, or any sensor reading, ALWAYS call get_device_state with the appropriate entity_id from the sensor list above. Do not respond with estimated or remembered values."
 
     messages = [
