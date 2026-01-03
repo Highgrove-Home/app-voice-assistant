@@ -229,6 +229,19 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
             await ha_client.close()
         await task.cancel()
 
+    @transport.event_handler("on_app_message")
+    async def on_app_message(transport, message, sender):
+        """Handle application messages from the client (e.g., ping/pong health checks)."""
+        try:
+            message_data = json.loads(message) if isinstance(message, str) else message
+
+            # Handle ping/pong health check
+            if message_data.get("type") == "ping":
+                logger.debug("Received ping, sending pong")
+                await transport.send_app_message(json.dumps({"type": "pong"}), sender)
+        except Exception as e:
+            logger.error(f"Error handling app message: {e}")
+
     runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
 
     await runner.run(task)
