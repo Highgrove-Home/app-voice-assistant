@@ -5,6 +5,13 @@ echo "🚀 Deploying Voice Assistant..."
 
 # Permanent deployment directory
 DEPLOY_DIR="/home/zammitjames/app-voice-assistant"
+OLD_DEPLOY_DIR="/home/zammitjames/voice-assistant"
+
+# Remove old deployment directory if it exists (migration)
+if [ -d "$OLD_DEPLOY_DIR" ] && [ "$OLD_DEPLOY_DIR" != "$DEPLOY_DIR" ]; then
+    echo "🗑️  Removing old deployment directory..."
+    rm -rf "$OLD_DEPLOY_DIR"
+fi
 
 # Clone or pull latest code
 if [ -d "$DEPLOY_DIR" ]; then
@@ -30,13 +37,15 @@ uv sync
 echo "📥 Downloading wake word models..."
 uv run python -c "from openwakeword.model import Model; Model(wakeword_models=['alexa'])" || echo "⚠️  Model download failed, will retry on first run"
 
-# Install systemd service if it doesn't exist
+# Always update systemd service file to ensure correct path
+echo "📝 Updating systemd service..."
+sudo cp voice-assistant.service /etc/systemd/system/
+sudo systemctl daemon-reload
+
+# Enable service if not already enabled
 if ! systemctl is-enabled voice-assistant.service &> /dev/null; then
-    echo "📝 Installing systemd service..."
-    sudo cp voice-assistant.service /etc/systemd/system/
-    sudo systemctl daemon-reload
     sudo systemctl enable voice-assistant.service
-    echo "✅ Service installed and enabled"
+    echo "✅ Service enabled"
 fi
 
 # Force kill any running instance and restart
