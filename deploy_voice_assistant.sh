@@ -35,7 +35,7 @@ uv sync
 
 # Download OpenWakeWord models
 echo "📥 Downloading wake word models..."
-uv run python -c "from openwakeword.model import Model; Model(wakeword_models=['alexa'])" || echo "⚠️  Model download failed, will retry on first run"
+uv run python -c "from openwakeword.model import Model; Model(wakeword_models=['alexa'], inference_framework='onnx')" || echo "⚠️  Model download failed, will retry on first run"
 
 # Always update systemd service file to ensure correct path
 echo "📝 Updating systemd service..."
