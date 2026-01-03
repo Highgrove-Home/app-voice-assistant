@@ -153,11 +153,24 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     # Suppress harmless Deepgram finalization warnings
     logging.getLogger("deepgram.clients.common.v1.abstract_async_websocket").setLevel(logging.CRITICAL)
 
+    # Add transcription logger to see what's actually being said
+    from pipecat.frames.frames import TranscriptionFrame
+    from pipecat.processors.frame_processor import FrameProcessor
+
+    class TranscriptionLogger(FrameProcessor):
+        async def process_frame(self, frame, direction):
+            if isinstance(frame, TranscriptionFrame):
+                logger.info(f"🎤 TRANSCRIPTION: '{frame.text}'")
+            await self.push_frame(frame, direction)
+
+    transcription_logger = TranscriptionLogger()
+
     pipeline = Pipeline(
         [
             transport.input(),  # Transport user input
             rtvi,  # RTVI processor
             stt,
+            transcription_logger,  # Log what's being transcribed
             wake_filter,  # Filter out speech without wake word
             context_aggregator.user(),  # User responses
             llm,  # LLM
