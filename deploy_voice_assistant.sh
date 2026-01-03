@@ -3,13 +3,25 @@ set -e
 
 echo "🚀 Deploying Voice Assistant..."
 
-# Get the directory where the script is located (GitHub Actions working directory)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "📂 Working directory: $SCRIPT_DIR"
+# Permanent deployment directory
+DEPLOY_DIR="/home/zammitjames/app-voice-assistant"
+
+# Clone or pull latest code
+if [ -d "$DEPLOY_DIR" ]; then
+    echo "📥 Pulling latest changes from GitHub..."
+    cd "$DEPLOY_DIR"
+    git fetch origin
+    git reset --hard origin/main
+else
+    echo "📥 Cloning repository..."
+    git clone https://github.com/Highgrove-Home/app-voice-assistant.git "$DEPLOY_DIR"
+    cd "$DEPLOY_DIR"
+fi
+
+echo "📂 Working directory: $DEPLOY_DIR"
 
 # Install/update dependencies with Python 3.11 (required for tflite-runtime)
 echo "📦 Installing dependencies with Python 3.11..."
-cd "$SCRIPT_DIR"
 uv python install 3.11
 uv python pin 3.11
 uv sync
