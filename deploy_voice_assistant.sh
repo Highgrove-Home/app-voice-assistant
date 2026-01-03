@@ -40,18 +40,27 @@ echo "📥 Downloading wake word models..."
 MODELS_DIR=$(uv run python -c "import openwakeword; import os; print(os.path.join(os.path.dirname(openwakeword.__file__), 'resources', 'models'))")
 mkdir -p "$MODELS_DIR"
 
-# Download alexa ONNX model from HuggingFace
-if [ ! -f "$MODELS_DIR/alexa_v0.1.onnx" ]; then
-    echo "Downloading alexa model from HuggingFace..."
-    curl -L -o "$MODELS_DIR/alexa_v0.1.onnx" \
-        "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa_v0.1.onnx" || \
-        echo "⚠️  Model download failed, will retry on first run"
+# Remove any corrupted existing model files
+rm -f "$MODELS_DIR/alexa_v0.1.onnx" "$MODELS_DIR/alexa_v0.1.onnx.json"
 
-    # Also download the metadata file
-    curl -L -o "$MODELS_DIR/alexa_v0.1.onnx.json" \
-        "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa_v0.1.onnx.json" 2>/dev/null || true
-else
-    echo "✅ Alexa model already exists"
+# Download alexa ONNX model from HuggingFace
+echo "Downloading alexa model from HuggingFace..."
+wget -q --show-progress -O "$MODELS_DIR/alexa_v0.1.onnx" \
+    "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa_v0.1.onnx" && \
+    echo "✅ Model downloaded successfully" || \
+    echo "⚠️  Model download failed"
+
+# Also download the metadata file
+wget -q -O "$MODELS_DIR/alexa_v0.1.onnx.json" \
+    "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa_v0.1.onnx.json" 2>/dev/null || true
+
+# Verify the ONNX file is valid (should be > 100KB)
+if [ -f "$MODELS_DIR/alexa_v0.1.onnx" ]; then
+    FILE_SIZE=$(stat -f%z "$MODELS_DIR/alexa_v0.1.onnx" 2>/dev/null || stat -c%s "$MODELS_DIR/alexa_v0.1.onnx" 2>/dev/null)
+    if [ "$FILE_SIZE" -lt 100000 ]; then
+        echo "⚠️  Downloaded file is too small ($FILE_SIZE bytes), removing..."
+        rm -f "$MODELS_DIR/alexa_v0.1.onnx"
+    fi
 fi
 
 # Always update systemd service file to ensure correct path
