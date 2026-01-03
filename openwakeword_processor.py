@@ -169,3 +169,12 @@ class OpenWakeWordProcessor(FrameProcessor):
         except asyncio.CancelledError:
             # Keepalive was reset
             pass
+
+    async def go_to_sleep(self):
+        """Manually put the system to sleep (e.g., when user says 'shut up')."""
+        if self._is_awake:
+            logger.info("🛑 User interrupted - going back to SLEEP")
+            self._is_awake = False
+            if self._keepalive_task:
+                self._keepalive_task.cancel()
+                self._keepalive_task = None

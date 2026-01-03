@@ -30,6 +30,7 @@ from home_assistant import (
     generate_openai_functions,
     handle_function_call,
 )
+from interrupt_handler import InterruptHandler
 from timer_manager import TimerManager
 
 print("🚀 Starting Pipecat bot...")
@@ -156,6 +157,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     )
     logger.info("✅ Wake word processor ready")
 
+    # Interrupt handler for detecting "shut up", "stop talking", etc.
+    interrupt_handler = InterruptHandler(wake_processor)
+    logger.info("✅ Interrupt handler ready")
+
     # Suppress harmless Deepgram finalization warnings
     import logging
     logging.getLogger("deepgram.clients.common.v1.abstract_async_websocket").setLevel(logging.CRITICAL)
@@ -166,6 +171,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
             rtvi,  # RTVI processor
             wake_processor,  # Audio-based wake word detection
             stt,  # Speech-to-Text (only processes when awake)
+            interrupt_handler,  # Detect interrupt commands (shut up, stop, etc.)
             context_aggregator.user(),  # User responses
             llm,  # LLM
             tts,  # TTS
