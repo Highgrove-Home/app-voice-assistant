@@ -7,9 +7,11 @@ echo "🚀 Deploying Voice Assistant..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "📂 Working directory: $SCRIPT_DIR"
 
-# Install/update dependencies
-echo "📦 Installing dependencies..."
+# Install/update dependencies with Python 3.11 (required for tflite-runtime)
+echo "📦 Installing dependencies with Python 3.11..."
 cd "$SCRIPT_DIR"
+uv python install 3.11
+uv python pin 3.11
 uv sync
 
 # Install systemd service if it doesn't exist

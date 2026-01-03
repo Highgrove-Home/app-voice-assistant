@@ -7,7 +7,7 @@ Type=simple
 User=zammitjames
 WorkingDirectory=/home/zammitjames/actions-runner/_work/app-voice-assistant/app-voice-assistant
 Environment="PATH=/home/zammitjames/.local/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/zammitjames/.local/bin/uv run bot.py
+ExecStart=/home/zammitjames/.local/bin/uv run --python 3.11 bot.py
 Restart=always
 RestartSec=5
 TimeoutStopSec=2

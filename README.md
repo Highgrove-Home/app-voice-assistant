@@ -16,7 +16,7 @@ A voice-controlled AI assistant built with Pipecat that integrates with Home Ass
 
 ### Environment
 
-- Python 3.10-3.13 (3.14 not yet supported due to onnxruntime dependencies)
+- Python 3.10-3.12 (3.13+ not supported - openwakeword requires tflite-runtime which only supports up to 3.12)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager installed
 
 ### AI Service API Keys
@@ -65,8 +65,8 @@ A voice-controlled AI assistant built with Pipecat that integrates with Home Ass
 3. Install dependencies
 
    ```bash
-   uv python install 3.13
-   uv python pin 3.13
+   uv python install 3.11
+   uv python pin 3.11
    uv sync
    ```
 
@@ -169,12 +169,14 @@ The assistant is configured to:
 
 ### Python Version Issues
 
-If you see `onnxruntime` wheel errors:
+If you see `tflite-runtime` wheel errors:
 ```bash
-uv python install 3.13
-uv python pin 3.13
+uv python install 3.11
+uv python pin 3.11
 uv sync
 ```
+
+OpenWakeWord requires `tflite-runtime` which only supports Python 3.10-3.12.
 
 ### Room Filtering Not Working
 
