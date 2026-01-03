@@ -142,7 +142,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     # Wake word filter - only respond when wake phrase is detected
     wake_filter = WakeCheckFilter(
-        wake_phrases=["hey assistant", "ok assistant", "hey there"],
+        wake_phrases=["hey jarvis", "ok jarvis", "alexa", "hey friday"],
         keepalive_timeout=5  # Stay awake for 5 seconds after last interaction
     )
 
