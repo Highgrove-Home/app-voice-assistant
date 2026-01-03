@@ -71,12 +71,19 @@ class OpenWakeWordProcessor(FrameProcessor):
         if isinstance(frame, InputAudioRawFrame):
             await self._process_audio(frame)
 
-            # Always pass audio frames through (STT needs continuous audio)
-            await self.push_frame(frame, direction)
+            # Only pass audio frames through when awake
+            if self._is_awake:
+                await self.push_frame(frame, direction)
 
         elif self._is_awake:
             # Only allow non-audio frames through when awake
             await self.push_frame(frame, direction)
+        else:
+            # Pass through non-audio, non-user frames even when asleep
+            # (e.g., StartFrame, system frames)
+            from pipecat.frames.frames import StartFrame, EndFrame, SystemFrame
+            if isinstance(frame, (StartFrame, EndFrame, SystemFrame)):
+                await self.push_frame(frame, direction)
 
         # Block all other frames when not awake
 
