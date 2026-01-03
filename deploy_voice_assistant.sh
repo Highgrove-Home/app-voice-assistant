@@ -35,7 +35,24 @@ uv sync
 
 # Download OpenWakeWord models
 echo "📥 Downloading wake word models..."
-uv run python -c "from openwakeword.model import Model; Model(wakeword_models=['alexa'], inference_framework='onnx')" || echo "⚠️  Model download failed, will retry on first run"
+
+# Find the OpenWakeWord models directory
+MODELS_DIR=$(uv run python -c "import openwakeword; import os; print(os.path.join(os.path.dirname(openwakeword.__file__), 'resources', 'models'))")
+mkdir -p "$MODELS_DIR"
+
+# Download alexa ONNX model from HuggingFace
+if [ ! -f "$MODELS_DIR/alexa_v0.1.onnx" ]; then
+    echo "Downloading alexa model from HuggingFace..."
+    curl -L -o "$MODELS_DIR/alexa_v0.1.onnx" \
+        "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa_v0.1.onnx" || \
+        echo "⚠️  Model download failed, will retry on first run"
+
+    # Also download the metadata file
+    curl -L -o "$MODELS_DIR/alexa_v0.1.onnx.json" \
+        "https://huggingface.co/davidscripka/openwakeword/resolve/main/alexa_v0.1.onnx.json" 2>/dev/null || true
+else
+    echo "✅ Alexa model already exists"
+fi
 
 # Always update systemd service file to ensure correct path
 echo "📝 Updating systemd service..."
