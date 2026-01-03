@@ -45,7 +45,8 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 logger.info("✅ Silero VAD model loaded")
 
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import LLMRunFrame, LLMSetToolsFrame
+from pipecat.frames.frames import LLMRunFrame, LLMSetToolsFrame, TTSSpeakFrame
+from pipecat.processors.filters.wake_check_filter import WakeCheckFilter
 
 logger.info("Loading pipeline components...")
 from pipecat.pipeline.pipeline import Pipeline
@@ -139,11 +140,18 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
+    # Wake word filter - only respond when wake phrase is detected
+    wake_filter = WakeCheckFilter(
+        wake_phrases=["hey assistant", "ok assistant", "hey there"],
+        keepalive_timeout=5  # Stay awake for 5 seconds after last interaction
+    )
+
     pipeline = Pipeline(
         [
             transport.input(),  # Transport user input
             rtvi,  # RTVI processor
             stt,
+            wake_filter,  # Filter out speech without wake word
             context_aggregator.user(),  # User responses
             llm,  # LLM
             tts,  # TTS
@@ -191,8 +199,13 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
             tools_frame = LLMSetToolsFrame(tools=generate_openai_functions())
             frames_to_queue.append(tools_frame)
 
+        # Explain wake word usage
+        frames_to_queue.append(
+            TTSSpeakFrame("Hello! Say 'hey assistant' when you want to talk to me.")
+        )
+
         # Kick off the conversation.
-        messages.append({"role": "system", "content": "Say hello and briefly introduce yourself."})
+        messages.append({"role": "system", "content": "Briefly introduce yourself and your capabilities."})
         frames_to_queue.append(LLMRunFrame())
 
         await task.queue_frames(frames_to_queue)

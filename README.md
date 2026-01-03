@@ -4,6 +4,7 @@ A voice-controlled AI assistant built with Pipecat that integrates with Home Ass
 
 ## Features
 
+- **Wake Word Detection**: Always-listening mode with "hey assistant" wake phrase activation
 - **Smart Home Control**: Control lights, switches, thermostats, and other Home Assistant devices via voice
 - **Room-Aware**: Automatically scopes device control to the configured room (e.g., "turn off the lights" only affects bedroom lights)
 - **Real-time Sensors**: Query temperature, humidity, CO2, and other sensor data
@@ -83,18 +84,27 @@ To access from other devices on your network, use `http://YOUR_IP:7860/client`
 
 ## Voice Commands
 
+### Wake Word
+
+The assistant uses wake word detection to filter out background conversations. Say one of these phrases to activate:
+- **"Hey assistant"**
+- **"OK assistant"**
+- **"Hey there"**
+
+Once activated, the assistant stays awake for 5 seconds of conversation. Say the wake phrase again if needed.
+
 ### Smart Home Control
 
-- "Turn on the lights"
-- "Turn off the fan"
-- "What's the temperature?"
-- "What's the humidity?"
+- "Hey assistant, turn on the lights"
+- "Hey assistant, turn off the fan"
+- "Hey assistant, what's the temperature?"
+- "What's the humidity?" (within 5 seconds of wake)
 - "Which lights are on?"
 - "Set the thermostat to 72 degrees"
 
 ### Timer Management
 
-- "Set a timer for 10 minutes"
+- "Hey assistant, set a timer for 10 minutes"
 - "Set a pasta timer for 8 minutes"
 - "Cancel the pasta timer"
 - "List all timers"
@@ -124,6 +134,20 @@ Devices are filtered by Home Assistant areas:
 4. Only accesses other rooms when explicitly requested by the user
 
 ## Configuration
+
+### Wake Word Settings
+
+Customize wake phrases in `bot.py` (line 144):
+```python
+wake_filter = WakeCheckFilter(
+    wake_phrases=["hey assistant", "ok assistant", "hey there"],
+    keepalive_timeout=5  # Seconds to stay awake
+)
+```
+
+**Parameters:**
+- `wake_phrases`: List of phrases to activate the assistant (case-insensitive)
+- `keepalive_timeout`: How long to stay awake after last interaction (default: 5 seconds)
 
 ### VAD Settings
 
