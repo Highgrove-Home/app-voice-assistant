@@ -67,6 +67,15 @@ class OpenWakeWordProcessor(FrameProcessor):
         """Process frames, filtering based on wake word detection."""
         await super().process_frame(frame, direction)
 
+        # Only block user input frames when not awake
+        # Allow all control frames (LLMSetToolsFrame, etc.) and bot output frames
+        from pipecat.frames.frames import (
+            InputAudioRawFrame,
+            TranscriptionFrame,
+            UserStartedSpeakingFrame,
+            UserStoppedSpeakingFrame,
+        )
+
         # Process audio frames for wake word detection
         if isinstance(frame, InputAudioRawFrame):
             await self._process_audio(frame)
@@ -74,18 +83,19 @@ class OpenWakeWordProcessor(FrameProcessor):
             # Only pass audio frames through when awake
             if self._is_awake:
                 await self.push_frame(frame, direction)
+            # Block audio when asleep
+            return
 
-        elif self._is_awake:
-            # Only allow non-audio frames through when awake
-            await self.push_frame(frame, direction)
-        else:
-            # Pass through non-audio, non-user frames even when asleep
-            # (e.g., StartFrame, system frames)
-            from pipecat.frames.frames import StartFrame, EndFrame, SystemFrame
-            if isinstance(frame, (StartFrame, EndFrame, SystemFrame)):
-                await self.push_frame(frame, direction)
+        # Block user input frames when not awake
+        if not self._is_awake and isinstance(
+            frame,
+            (TranscriptionFrame, UserStartedSpeakingFrame, UserStoppedSpeakingFrame),
+        ):
+            # Block user input when asleep
+            return
 
-        # Block all other frames when not awake
+        # Allow all other frames through (control frames, bot output, etc.)
+        await self.push_frame(frame, direction)
 
     async def _process_audio(self, frame: InputAudioRawFrame):
         """Process audio frame for wake word detection."""
