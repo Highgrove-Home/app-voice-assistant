@@ -9,6 +9,10 @@ jobs:
   deploy:
     runs-on: self-hosted
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Deploy to Pi
         run: |
-          /home/zammitjames/deploy_voice_assistant.sh
+          chmod +x deploy_voice_assistant.sh
+          ./deploy_voice_assistant.sh

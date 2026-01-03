@@ -3,15 +3,13 @@ set -e
 
 echo "🚀 Deploying Voice Assistant..."
 
-# Navigate to the project directory
-cd /home/zammitjames/app-voice-assistant
-
-# Pull latest changes
-echo "📥 Pulling latest changes from GitHub..."
-git pull origin main
+# Get the directory where the script is located (GitHub Actions working directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "📂 Working directory: $SCRIPT_DIR"
 
 # Install/update dependencies
 echo "📦 Installing dependencies..."
+cd "$SCRIPT_DIR"
 uv sync
 
 # Restart the systemd service
