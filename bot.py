@@ -46,7 +46,8 @@ logger.info("✅ Silero VAD model loaded")
 
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import LLMRunFrame, LLMSetToolsFrame, TTSSpeakFrame
-from pipecat.processors.filters.wake_check_filter import WakeCheckFilter
+
+from openwakeword_processor import OpenWakeWordProcessor
 
 logger.info("Loading pipeline components...")
 from pipecat.pipeline.pipeline import Pipeline
@@ -140,38 +141,26 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
-    # Wake word filter - only respond when wake phrase is detected
-    # Note: Don't include punctuation - the matcher handles word boundaries
-    wake_filter = WakeCheckFilter(
-        wake_phrases=["hey jarvis", "ok jarvis", "alexa", "hey friday", "jarvis"],
-        keepalive_timeout=5  # Stay awake for 5 seconds after last interaction
+    # Audio-based wake word detection using OpenWakeWord
+    logger.info("Initializing OpenWakeWord wake word detection...")
+    wake_processor = OpenWakeWordProcessor(
+        wake_words=["hey_jarvis", "alexa"],  # OpenWakeWord model names
+        threshold=0.5,                        # Confidence threshold (0.3-0.7)
+        keepalive_timeout=5.0,                # Stay awake for 5 seconds
+        inference_framework="tflite"          # Faster on Raspberry Pi
     )
+    logger.info("✅ Wake word processor ready")
 
-    # Enable debug logging for wake filter
-    import logging
-    logging.getLogger("pipecat.processors.filters.wake_check_filter").setLevel(logging.DEBUG)
     # Suppress harmless Deepgram finalization warnings
+    import logging
     logging.getLogger("deepgram.clients.common.v1.abstract_async_websocket").setLevel(logging.CRITICAL)
-
-    # Add transcription logger to see what's actually being said
-    from pipecat.frames.frames import TranscriptionFrame
-    from pipecat.processors.frame_processor import FrameProcessor
-
-    class TranscriptionLogger(FrameProcessor):
-        async def process_frame(self, frame, direction):
-            if isinstance(frame, TranscriptionFrame):
-                logger.info(f"🎤 TRANSCRIPTION: '{frame.text}'")
-            await self.push_frame(frame, direction)
-
-    transcription_logger = TranscriptionLogger()
 
     pipeline = Pipeline(
         [
             transport.input(),  # Transport user input
             rtvi,  # RTVI processor
-            stt,
-            transcription_logger,  # Log what's being transcribed
-            wake_filter,  # Filter out speech without wake word
+            wake_processor,  # Audio-based wake word detection
+            stt,  # Speech-to-Text (only processes when awake)
             context_aggregator.user(),  # User responses
             llm,  # LLM
             tts,  # TTS
@@ -221,7 +210,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
         # Explain wake word usage
         frames_to_queue.append(
-            TTSSpeakFrame("Hello! Say 'hey assistant' when you want to talk to me.")
+            TTSSpeakFrame("Hello! Say 'hey Jarvis' or 'Alexa' to wake me up.")
         )
 
         # Kick off the conversation.
