@@ -9,10 +9,14 @@ jobs:
   deploy:
     runs-on: [self-hosted, voice-assistant-server]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Deploy to Pi
         run: |
+          # Clone repo if it doesn't exist, otherwise the deploy script will pull
+          if [ ! -d "/home/zammitjames/app-voice-assistant" ]; then
+            git clone https://github.com/Highgrove-Home/app-voice-assistant.git /home/zammitjames/app-voice-assistant
+          fi
+
+          # Run deployment script from permanent directory
+          cd /home/zammitjames/app-voice-assistant
           chmod +x deploy_voice_assistant.sh
           ./deploy_voice_assistant.sh

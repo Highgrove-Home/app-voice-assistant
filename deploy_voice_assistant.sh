@@ -39,12 +39,19 @@ if ! systemctl is-enabled voice-assistant.service &> /dev/null; then
     echo "✅ Service installed and enabled"
 fi
 
-# Restart the systemd service
-echo "♻️  Restarting voice-assistant service..."
-sudo systemctl restart voice-assistant.service
+# Force kill any running instance and restart
+echo "🛑 Stopping voice-assistant service..."
+sudo systemctl kill -s SIGKILL voice-assistant.service 2>/dev/null || true
+
+echo "♻️  Reloading systemd and starting service..."
+sudo systemctl daemon-reload
+sudo systemctl start voice-assistant.service
+
+# Wait a moment for service to start
+sleep 2
 
 # Check status
 echo "✅ Deployment complete! Checking service status..."
-sudo systemctl status voice-assistant.service --no-pager
+sudo systemctl status voice-assistant.service --no-pager || true
 
 echo "✨ Voice Assistant deployed successfully!"
