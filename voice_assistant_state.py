@@ -38,7 +38,7 @@ class VoiceAssistantStateTracker:
 
     # State icons for HA UI
     STATE_ICONS = {
-        STATE_STANDBY: "mdi:power-standby",
+        STATE_STANDBY: "mdi:microphone-outline",
         STATE_LISTENING: "mdi:microphone",
         STATE_PROCESSING: "mdi:brain",
         STATE_SPEAKING: "mdi:speaker",
