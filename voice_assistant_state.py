@@ -71,16 +71,24 @@ class VoiceAssistantStateTracker:
         self.room_name = room_name.lower().replace(" ", "_")
         self.current_state = self.STATE_OFFLINE
 
-        # MQTT topics
+        # MQTT topics for sensor
         self.device_id = f"voice_assistant_{self.room_name}"
         self.entity_id = f"sensor.{self.device_id}"
         self.config_topic = f"homeassistant/sensor/{self.device_id}/config"
         self.state_topic = f"homeassistant/sensor/{self.device_id}/state"
         self.attributes_topic = f"homeassistant/sensor/{self.device_id}/attributes"
 
+        # MQTT topics for mute switch
+        self.mute_switch_id = f"switch.{self.device_id}_mute"
+        self.mute_config_topic = f"homeassistant/switch/{self.device_id}_mute/config"
+        self.mute_state_topic = f"homeassistant/switch/{self.device_id}_mute/state"
+        self.mute_command_topic = f"homeassistant/switch/{self.device_id}_mute/set"
+
         self._mqtt_client: Optional[aiomqtt.Client] = None
         self._mqtt_task: Optional[asyncio.Task] = None
         self._connected = False
+        self._is_muted = False  # Track mute state
+        self._mute_callback = None  # Callback for mute state changes
 
         # Debouncing for state changes
         self._last_state_change = 0.0  # Timestamp of last state change
@@ -103,10 +111,17 @@ class VoiceAssistantStateTracker:
             await self._mqtt_client.__aenter__()
             self._connected = True
 
-            # Publish discovery config
+            # Publish discovery config for sensor and switch
             await self._publish_discovery()
 
-            logger.info(f"✅ MQTT connected, entity: {self.entity_id}")
+            # Subscribe to mute command topic
+            await self._mqtt_client.subscribe(self.mute_command_topic)
+            logger.debug(f"Subscribed to mute commands: {self.mute_command_topic}")
+
+            # Start listening for mute commands
+            asyncio.create_task(self._listen_for_mute_commands())
+
+            logger.info(f"✅ MQTT connected, entity: {self.entity_id}, mute switch: {self.mute_switch_id}")
 
         except Exception as e:
             logger.error(f"Failed to connect to MQTT broker: {e}")
@@ -127,28 +142,58 @@ class VoiceAssistantStateTracker:
 
     async def _publish_discovery(self):
         """Publish MQTT discovery config for Home Assistant."""
-        config = {
+        device_info = {
+            "identifiers": [self.device_id],
+            "name": f"Pipecat Voice Assistant ({self.room_name.replace('_', ' ').title()})",
+            "manufacturer": "Pipecat",
+            "model": "Voice Assistant",
+        }
+
+        # Sensor config (for state tracking)
+        sensor_config = {
             "name": f"Pipecat ({self.room_name.replace('_', ' ').title()})",
             "unique_id": self.device_id,
             "object_id": self.device_id,  # Explicitly set entity ID to avoid suffix
             "state_topic": self.state_topic,
             "json_attributes_topic": self.attributes_topic,
             "icon": "mdi:account-voice",
-            "device": {
-                "identifiers": [self.device_id],
-                "name": f"Pipecat Voice Assistant ({self.room_name.replace('_', ' ').title()})",
-                "manufacturer": "Pipecat",
-                "model": "Voice Assistant",
-            },
+            "device": device_info,
+        }
+
+        # Switch config (for mute control)
+        switch_config = {
+            "name": "Mute",
+            "unique_id": f"{self.device_id}_mute",
+            "object_id": f"{self.device_id}_mute",
+            "state_topic": self.mute_state_topic,
+            "command_topic": self.mute_command_topic,
+            "payload_on": "ON",
+            "payload_off": "OFF",
+            "state_on": "ON",
+            "state_off": "OFF",
+            "icon": "mdi:microphone-off",
+            "device": device_info,
         }
 
         if self._mqtt_client:
+            # Publish sensor config
             await self._mqtt_client.publish(
                 self.config_topic,
-                payload=json.dumps(config),
+                payload=json.dumps(sensor_config),
                 retain=True,
             )
-            logger.debug(f"Published MQTT discovery config to {self.config_topic}")
+            logger.debug(f"Published sensor config to {self.config_topic}")
+
+            # Publish switch config
+            await self._mqtt_client.publish(
+                self.mute_config_topic,
+                payload=json.dumps(switch_config),
+                retain=True,
+            )
+            logger.debug(f"Published mute switch config to {self.mute_config_topic}")
+
+            # Publish initial mute state
+            await self._publish_mute_state()
 
     async def set_state(self, state: str, **extra_attributes):
         """Update assistant state in Home Assistant via MQTT.
@@ -205,6 +250,63 @@ class VoiceAssistantStateTracker:
 
         except Exception as e:
             logger.error(f"Failed to publish state to MQTT: {e}")
+
+    async def _publish_mute_state(self):
+        """Publish current mute state to MQTT."""
+        if not self._connected or not self._mqtt_client:
+            return
+
+        try:
+            payload = "ON" if self._is_muted else "OFF"
+            await self._mqtt_client.publish(
+                self.mute_state_topic,
+                payload=payload,
+                retain=True,
+            )
+            logger.debug(f"Published mute state: {payload}")
+        except Exception as e:
+            logger.error(f"Failed to publish mute state: {e}")
+
+    async def _listen_for_mute_commands(self):
+        """Background task to listen for mute switch commands from HA."""
+        try:
+            async for message in self._mqtt_client.messages:
+                if message.topic.matches(self.mute_command_topic):
+                    command = message.payload.decode()
+                    new_muted = (command == "ON")
+
+                    if new_muted != self._is_muted:
+                        logger.info(f"Mute command received: {command} (muted={new_muted})")
+                        self._is_muted = new_muted
+
+                        # Publish state back
+                        await self._publish_mute_state()
+
+                        # Call callback if registered
+                        if self._mute_callback:
+                            await self._mute_callback(new_muted)
+
+        except Exception as e:
+            logger.error(f"Error in mute command listener: {e}")
+
+    def set_mute_callback(self, callback):
+        """Register callback for mute state changes.
+
+        Args:
+            callback: Async function with signature: async def callback(muted: bool)
+        """
+        self._mute_callback = callback
+
+    async def set_muted(self, muted: bool):
+        """Set mute state programmatically (updates switch in HA).
+
+        Args:
+            muted: True to mute, False to unmute
+        """
+        if muted != self._is_muted:
+            self._is_muted = muted
+            await self._publish_mute_state()
+            logger.info(f"Mute state set to: {muted}")
 
     async def on_standby(self):
         """Assistant went to standby (wake word processor sleeping, waiting for wake word)."""
