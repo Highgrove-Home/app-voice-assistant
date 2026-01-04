@@ -87,19 +87,34 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     ha_client = None
     ha_summary = ""
-    state_tracker = None
     if ha_url and ha_token:
         ha_client = HomeAssistantClient(ha_url, ha_token, room_name=room_name)
         logger.info(f"Initializing Home Assistant client for room: {room_name}...")
         await ha_client.fetch_entities()
         ha_summary = ha_client.get_entity_summary()
         logger.info(f"Home Assistant ready: {ha_summary}")
-
-        # Initialize state tracker
-        state_tracker = VoiceAssistantStateTracker(ha_client, room_name)
-        logger.info(f"State tracker initialized: {state_tracker.entity_id}")
     else:
         logger.warning("Home Assistant credentials not found. Smart home features disabled.")
+
+    # Initialize MQTT state tracker (separate from HA client)
+    mqtt_host = os.getenv("MQTT_HOST", "localhost")
+    mqtt_port = int(os.getenv("MQTT_PORT", "1883"))
+    mqtt_username = os.getenv("MQTT_USERNAME")
+    mqtt_password = os.getenv("MQTT_PASSWORD")
+
+    state_tracker = None
+    if mqtt_host:
+        state_tracker = VoiceAssistantStateTracker(
+            mqtt_host=mqtt_host,
+            mqtt_port=mqtt_port,
+            room_name=room_name,
+            mqtt_username=mqtt_username,
+            mqtt_password=mqtt_password,
+        )
+        await state_tracker.connect()
+        logger.info(f"State tracker initialized: {state_tracker.entity_id}")
+    else:
+        logger.warning("MQTT not configured. State tracking disabled.")
 
     stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"))
 
@@ -256,14 +271,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
         logger.info(f"Client disconnected")
-        # Set state to offline
-        if state_tracker:
-            await state_tracker.on_offline()
         # Cancel all timers
         await timer_manager.cancel_all_timers()
         # Clean up Home Assistant connections
         if ha_client:
             await ha_client.close()
+        # Disconnect MQTT state tracker
+        if state_tracker:
+            await state_tracker.disconnect()
         await task.cancel()
 
     @transport.event_handler("on_app_message")
