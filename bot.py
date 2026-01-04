@@ -169,6 +169,21 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         llm.register_function("get_device_state", handle_ha_function)
         llm.register_function("list_devices", handle_ha_function)
 
+    # Register mute/unmute functions if state tracker is available
+    if state_tracker:
+        async def handle_mute(params):
+            """Handler for muting the assistant."""
+            await state_tracker.set_muted(True)
+            await params.result_callback("I've muted myself. Tap the dashboard or toggle the mute switch to unmute me.")
+
+        async def handle_unmute(params):
+            """Handler for unmuting the assistant."""
+            await state_tracker.set_muted(False)
+            await params.result_callback("I've unmuted myself.")
+
+        llm.register_function("mute_assistant", handle_mute)
+        llm.register_function("unmute_assistant", handle_unmute)
+
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
     # Audio-based wake word detection using OpenWakeWord

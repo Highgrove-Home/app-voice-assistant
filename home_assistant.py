@@ -731,6 +731,18 @@ def generate_openai_functions() -> ToolsSchema:
                 }
             },
             required=["name"]
+        ),
+        FunctionSchema(
+            name="mute_assistant",
+            description="Mute the voice assistant. Use when the user asks you to be quiet, mute, or stop listening. The assistant will not respond to wake words until unmuted.",
+            properties={},
+            required=[]
+        ),
+        FunctionSchema(
+            name="unmute_assistant",
+            description="Unmute the voice assistant. Use when the user asks you to unmute or start listening again.",
+            properties={},
+            required=[]
         )
     ]
 
