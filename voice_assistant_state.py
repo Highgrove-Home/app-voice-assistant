@@ -6,6 +6,7 @@ This creates a persistent sensor entity that survives HA restarts.
 
 import asyncio
 import json
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -27,7 +28,7 @@ class VoiceAssistantStateTracker:
     """
 
     # State definitions
-    STATE_ASLEEP = "asleep"  # Wake word processor sleeping
+    STATE_STANDBY = "standby"  # Wake word processor sleeping, waiting for wake word
     STATE_LISTENING = "listening"  # User speaking (after wake word)
     STATE_PROCESSING = "processing"  # LLM thinking / function calls
     STATE_SPEAKING = "speaking"  # Bot generating/playing TTS
@@ -36,7 +37,7 @@ class VoiceAssistantStateTracker:
 
     # State icons for HA UI
     STATE_ICONS = {
-        STATE_ASLEEP: "mdi:sleep",
+        STATE_STANDBY: "mdi:power-standby",
         STATE_LISTENING: "mdi:microphone",
         STATE_PROCESSING: "mdi:brain",
         STATE_SPEAKING: "mdi:speaker",
@@ -78,6 +79,10 @@ class VoiceAssistantStateTracker:
         self._mqtt_client: Optional[aiomqtt.Client] = None
         self._mqtt_task: Optional[asyncio.Task] = None
         self._connected = False
+
+        # Debouncing for state changes
+        self._last_state_change = 0.0  # Timestamp of last state change
+        self._debounce_interval = 0.3  # Minimum seconds between state changes
 
     async def connect(self):
         """Connect to MQTT broker and publish discovery config."""
@@ -121,14 +126,15 @@ class VoiceAssistantStateTracker:
     async def _publish_discovery(self):
         """Publish MQTT discovery config for Home Assistant."""
         config = {
-            "name": "Voice Assistant",
+            "name": f"Pipecat ({self.room_name.replace('_', ' ').title()})",
             "unique_id": self.device_id,
+            "object_id": self.device_id,  # Explicitly set entity ID to avoid suffix
             "state_topic": self.state_topic,
             "json_attributes_topic": self.attributes_topic,
             "icon": "mdi:account-voice",
             "device": {
                 "identifiers": [self.device_id],
-                "name": f"Voice Assistant ({self.room_name.replace('_', ' ').title()})",
+                "name": f"Pipecat Voice Assistant ({self.room_name.replace('_', ' ').title()})",
                 "manufacturer": "Pipecat",
                 "model": "Voice Assistant",
             },
@@ -157,8 +163,18 @@ class VoiceAssistantStateTracker:
             # Don't spam MQTT with duplicate state updates
             return
 
+        # Debounce state changes (except for critical states like offline)
+        current_time = time.time()
+        time_since_last_change = current_time - self._last_state_change
+
+        if time_since_last_change < self._debounce_interval and state != self.STATE_OFFLINE:
+            # Skip rapid state changes to avoid flickering
+            logger.debug(f"Debounced state change: {self.current_state} -> {state} (too fast: {time_since_last_change:.2f}s)")
+            return
+
         logger.info(f"Voice assistant state: {self.current_state} -> {state}")
         self.current_state = state
+        self._last_state_change = current_time
 
         if not self._connected or not self._mqtt_client:
             logger.warning("MQTT not connected, skipping state update")
@@ -188,9 +204,9 @@ class VoiceAssistantStateTracker:
         except Exception as e:
             logger.error(f"Failed to publish state to MQTT: {e}")
 
-    async def on_asleep(self):
-        """Assistant went to sleep (wake word processor sleeping)."""
-        await self.set_state(self.STATE_ASLEEP)
+    async def on_standby(self):
+        """Assistant went to standby (wake word processor sleeping, waiting for wake word)."""
+        await self.set_state(self.STATE_STANDBY)
 
     async def on_listening(self):
         """User started speaking after wake word detected."""

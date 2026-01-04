@@ -48,8 +48,8 @@ class StateTrackingProcessor(FrameProcessor):
 
         # Track different frame types
         if isinstance(frame, StartFrame):
-            # Pipeline started - set to asleep initially
-            await self.state_tracker.on_asleep()
+            # Pipeline started - set to standby initially
+            await self.state_tracker.on_standby()
 
         elif isinstance(frame, UserStartedSpeakingFrame):
             # User started speaking (after wake word)
@@ -82,5 +82,5 @@ class StateTrackingProcessor(FrameProcessor):
         await self.state_tracker.on_listening()
 
     async def on_sleep(self):
-        """Called by wake processor when going back to sleep."""
-        await self.state_tracker.on_asleep()
+        """Called by wake processor when going back to standby."""
+        await self.state_tracker.on_standby()

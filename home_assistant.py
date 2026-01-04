@@ -157,6 +157,75 @@ class HomeAssistantClient:
             self._ws = None
             return None
 
+    async def subscribe_state_changes(self, entity_id: str, callback):
+        """Subscribe to state changes for a specific entity.
+
+        Args:
+            entity_id: Entity ID to monitor (e.g., "switch.bedroom_mute")
+            callback: Async function to call with new state when it changes
+                      Signature: async def callback(entity_id: str, new_state: str, old_state: str)
+        """
+        await self._ws_connect()
+
+        if not self._ws:
+            logger.error("WebSocket not connected, cannot subscribe")
+            return
+
+        try:
+            # Subscribe to state changes
+            self._ws_id_counter += 1
+            request_id = self._ws_id_counter
+
+            request = {
+                "id": request_id,
+                "type": "subscribe_events",
+                "event_type": "state_changed"
+            }
+            await self._ws.send(json.dumps(request))
+
+            # Get subscription confirmation
+            response = await self._ws.recv()
+            response_data = json.loads(response)
+
+            if not response_data.get("success"):
+                logger.error(f"Failed to subscribe to state changes: {response_data}")
+                return
+
+            logger.info(f"Subscribed to state changes for {entity_id}")
+
+            # Listen for state change events
+            asyncio.create_task(self._ws_listen_loop(entity_id, callback))
+
+        except Exception as e:
+            logger.error(f"Failed to subscribe to state changes: {e}")
+
+    async def _ws_listen_loop(self, entity_id: str, callback):
+        """Background task to listen for WebSocket events and call callback."""
+        try:
+            while self._ws:
+                message = await self._ws.recv()
+                data = json.loads(message)
+
+                # Check if this is a state_changed event for our entity
+                if data.get("type") == "event":
+                    event = data.get("event", {})
+                    if event.get("event_type") == "state_changed":
+                        event_data = event.get("data", {})
+                        if event_data.get("entity_id") == entity_id:
+                            new_state = event_data.get("new_state", {})
+                            old_state = event_data.get("old_state", {})
+
+                            new_state_value = new_state.get("state")
+                            old_state_value = old_state.get("state") if old_state else None
+
+                            # Call the callback
+                            await callback(entity_id, new_state_value, old_state_value)
+
+        except websockets.exceptions.ConnectionClosed:
+            logger.info(f"WebSocket connection closed, stopping listener for {entity_id}")
+        except Exception as e:
+            logger.error(f"Error in WebSocket listen loop: {e}")
+
     async def fetch_areas(self) -> Optional[str]:
         """Fetch areas via WebSocket and find the area_id for the configured room.
 

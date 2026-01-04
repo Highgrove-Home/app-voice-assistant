@@ -42,6 +42,7 @@ class OpenWakeWordProcessor(FrameProcessor):
         self._threshold = threshold
         self._keepalive_timeout = keepalive_timeout
         self._is_awake = False
+        self._is_muted = False  # Mute flag controlled by HA switch
         self._keepalive_task = None
         self._state_tracker = state_tracker  # Optional state tracker for HA updates
 
@@ -65,6 +66,22 @@ class OpenWakeWordProcessor(FrameProcessor):
             logger.error(f"Failed to initialize OpenWakeWord: {e}")
             raise
 
+    def set_muted(self, muted: bool):
+        """Set mute state. When muted, wake word detection is disabled."""
+        self._is_muted = muted
+        if muted:
+            logger.info("🔇 Assistant MUTED - wake word detection disabled")
+            # Put system to sleep when muted
+            self._is_awake = False
+            if self._keepalive_task:
+                self._keepalive_task.cancel()
+        else:
+            logger.info("🔊 Assistant UNMUTED - wake word detection enabled")
+
+    def is_muted(self) -> bool:
+        """Check if assistant is muted."""
+        return self._is_muted
+
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         """Process frames, filtering based on wake word detection."""
         await super().process_frame(frame, direction)
@@ -77,6 +94,13 @@ class OpenWakeWordProcessor(FrameProcessor):
             UserStartedSpeakingFrame,
             UserStoppedSpeakingFrame,
         )
+
+        # Block everything when muted
+        if self._is_muted and isinstance(
+            frame,
+            (InputAudioRawFrame, TranscriptionFrame, UserStartedSpeakingFrame, UserStoppedSpeakingFrame),
+        ):
+            return
 
         # Process audio frames for wake word detection
         if isinstance(frame, InputAudioRawFrame):
@@ -171,11 +195,11 @@ class OpenWakeWordProcessor(FrameProcessor):
         try:
             await asyncio.sleep(self._keepalive_timeout)
             self._is_awake = False
-            logger.info("💤 System went back to SLEEP")
+            logger.info("⏸️  System went back to STANDBY")
 
             # Notify state tracker if available
             if self._state_tracker:
-                await self._state_tracker.on_asleep()
+                await self._state_tracker.on_standby()
         except asyncio.CancelledError:
             # Keepalive was reset
             pass
@@ -183,7 +207,7 @@ class OpenWakeWordProcessor(FrameProcessor):
     async def go_to_sleep(self):
         """Manually put the system to sleep (e.g., when user says 'shut up')."""
         if self._is_awake:
-            logger.info("🛑 User interrupted - going back to SLEEP")
+            logger.info("🛑 User interrupted - going back to STANDBY")
             self._is_awake = False
             if self._keepalive_task:
                 self._keepalive_task.cancel()
@@ -191,4 +215,4 @@ class OpenWakeWordProcessor(FrameProcessor):
 
             # Notify state tracker if available
             if self._state_tracker:
-                await self._state_tracker.on_asleep()
+                await self._state_tracker.on_standby()
