@@ -56,14 +56,21 @@ class StateTrackingProcessor(FrameProcessor):
             if self.wake_processor._is_awake:
                 await self.state_tracker.on_listening()
 
+        elif isinstance(frame, TranscriptionFrame):
+            # Capture user transcription for conversation history
+            if self.wake_processor._is_awake and frame.text:
+                self.state_tracker.add_user_message(frame.text)
+
         elif isinstance(frame, UserStoppedSpeakingFrame):
             # User stopped speaking - now processing
             if self.wake_processor._is_awake:
                 await self.state_tracker.on_processing()
 
         elif isinstance(frame, TTSStartedFrame):
-            # Bot started speaking
+            # Bot started speaking - capture message for history
             await self.state_tracker.on_speaking()
+            if hasattr(frame, 'text') and frame.text:
+                self.state_tracker.add_assistant_message(frame.text)
 
         elif isinstance(frame, TTSStoppedFrame):
             # Bot stopped speaking - now idle (still awake)

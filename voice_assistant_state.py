@@ -90,6 +90,10 @@ class VoiceAssistantStateTracker:
         self._is_muted = False  # Track mute state
         self._mute_callback = None  # Callback for mute state changes
 
+        # Conversation history tracking
+        self._conversation_history = []  # List of {role, message, timestamp}
+        self._max_history = 10  # Keep last 10 messages
+
         # Debouncing for state changes
         self._last_state_change = 0.0  # Timestamp of last state change
         self._debounce_interval = 0.3  # Minimum seconds between state changes
@@ -240,6 +244,7 @@ class VoiceAssistantStateTracker:
                 "icon": self.STATE_ICONS[state],
                 "last_updated": datetime.now().isoformat(),
                 "room": self.room_name,
+                "conversation_history": self._conversation_history,
                 **extra_attributes,
             }
             await self._mqtt_client.publish(
@@ -307,6 +312,43 @@ class VoiceAssistantStateTracker:
             self._is_muted = muted
             await self._publish_mute_state()
             logger.info(f"Mute state set to: {muted}")
+
+    def add_user_message(self, message: str):
+        """Add a user message to conversation history.
+
+        Args:
+            message: The user's transcribed message
+        """
+        self._add_to_history("user", message)
+
+    def add_assistant_message(self, message: str):
+        """Add an assistant message to conversation history.
+
+        Args:
+            message: The assistant's response text
+        """
+        self._add_to_history("assistant", message)
+
+    def _add_to_history(self, role: str, message: str):
+        """Add a message to conversation history, maintaining max size.
+
+        Args:
+            role: "user" or "assistant"
+            message: The message text
+        """
+        entry = {
+            "role": role,
+            "message": message,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        self._conversation_history.append(entry)
+
+        # Keep only last N messages
+        if len(self._conversation_history) > self._max_history:
+            self._conversation_history = self._conversation_history[-self._max_history:]
+
+        logger.debug(f"Added {role} message to history: {message[:50]}...")
 
     async def on_standby(self):
         """Assistant went to standby (wake word processor sleeping, waiting for wake word)."""
