@@ -48,6 +48,9 @@ class StateTrackingProcessor(FrameProcessor):
         """Process frames and update state based on activity."""
         await super().process_frame(frame, direction)
 
+        # Debug: log all frame types
+        logger.debug(f"StateTrackingProcessor received frame: {type(frame).__name__}")
+
         # Track different frame types
         if isinstance(frame, StartFrame):
             # Pipeline started - set to standby initially

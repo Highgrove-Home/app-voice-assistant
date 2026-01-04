@@ -205,19 +205,20 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     import logging
     logging.getLogger("deepgram.clients.common.v1.abstract_async_websocket").setLevel(logging.CRITICAL)
 
-    # Build pipeline with optional state tracker
+    # Build pipeline
     pipeline_processors = [
         transport.input(),  # Transport user input
         rtvi,  # RTVI processor
         wake_processor,  # Audio-based wake word detection
-    ]
-
-    if state_processor:
-        pipeline_processors.append(state_processor)  # State tracking (after wake detection)
-
-    pipeline_processors.extend([
         stt,  # Speech-to-Text (only processes when awake)
         interrupt_handler,  # Detect interrupt commands (shut up, stop, etc.)
+    ]
+
+    # Add state tracker after STT so it can see TranscriptionFrame
+    if state_processor:
+        pipeline_processors.append(state_processor)  # State tracking (captures transcriptions and responses)
+
+    pipeline_processors.extend([
         context_aggregator.user(),  # User responses
         llm,  # LLM
         tts,  # TTS
