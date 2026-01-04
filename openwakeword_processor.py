@@ -34,6 +34,7 @@ class OpenWakeWordProcessor(FrameProcessor):
         keepalive_timeout: float = 5.0,
         inference_framework: str = "onnx",
         chunk_size_samples: int = 1280,
+        state_tracker=None,
     ):
         super().__init__()
 
@@ -42,6 +43,7 @@ class OpenWakeWordProcessor(FrameProcessor):
         self._keepalive_timeout = keepalive_timeout
         self._is_awake = False
         self._keepalive_task = None
+        self._state_tracker = state_tracker  # Optional state tracker for HA updates
 
         # Audio buffering
         self._chunk_size_samples = chunk_size_samples
@@ -154,6 +156,10 @@ class OpenWakeWordProcessor(FrameProcessor):
             logger.info("✨ System is now AWAKE")
             self._is_awake = True
 
+            # Notify state tracker if available
+            if self._state_tracker:
+                await self._state_tracker.on_listening()
+
         # Reset keepalive timer
         if self._keepalive_task:
             self._keepalive_task.cancel()
@@ -166,6 +172,10 @@ class OpenWakeWordProcessor(FrameProcessor):
             await asyncio.sleep(self._keepalive_timeout)
             self._is_awake = False
             logger.info("💤 System went back to SLEEP")
+
+            # Notify state tracker if available
+            if self._state_tracker:
+                await self._state_tracker.on_asleep()
         except asyncio.CancelledError:
             # Keepalive was reset
             pass
@@ -178,3 +188,7 @@ class OpenWakeWordProcessor(FrameProcessor):
             if self._keepalive_task:
                 self._keepalive_task.cancel()
                 self._keepalive_task = None
+
+            # Notify state tracker if available
+            if self._state_tracker:
+                await self._state_tracker.on_asleep()

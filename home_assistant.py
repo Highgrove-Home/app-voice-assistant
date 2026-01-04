@@ -318,6 +318,41 @@ class HomeAssistantClient:
             logger.error(f"Failed to fetch entities from Home Assistant: {e}")
             return {}
 
+    async def set_state(
+        self,
+        entity_id: str,
+        state: str,
+        attributes: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Set state of an entity (creates it if it doesn't exist).
+
+        Args:
+            entity_id: Entity ID to set state for
+            state: New state value
+            attributes: Optional attributes dictionary
+
+        Returns:
+            True if successful, False otherwise
+        """
+        session = await self.get_session()
+        payload = {
+            "state": state,
+            "attributes": attributes or {}
+        }
+
+        try:
+            async with session.post(
+                f"{self.url}/api/states/{entity_id}",
+                json=payload
+            ) as response:
+                response.raise_for_status()
+                logger.debug(f"Set state for {entity_id} to '{state}'")
+                return True
+
+        except Exception as e:
+            logger.error(f"Failed to set state for {entity_id}: {e}")
+            return False
+
     async def call_service(
         self,
         domain: str,

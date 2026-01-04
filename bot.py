@@ -32,6 +32,8 @@ from home_assistant import (
 )
 from interrupt_handler import InterruptHandler
 from timer_manager import TimerManager
+from voice_assistant_state import VoiceAssistantStateTracker
+from state_tracking_processor import StateTrackingProcessor
 
 print("🚀 Starting Pipecat bot...")
 print("⏳ Loading models and imports (20 seconds, first run only)\n")
@@ -85,12 +87,17 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     ha_client = None
     ha_summary = ""
+    state_tracker = None
     if ha_url and ha_token:
         ha_client = HomeAssistantClient(ha_url, ha_token, room_name=room_name)
         logger.info(f"Initializing Home Assistant client for room: {room_name}...")
         await ha_client.fetch_entities()
         ha_summary = ha_client.get_entity_summary()
         logger.info(f"Home Assistant ready: {ha_summary}")
+
+        # Initialize state tracker
+        state_tracker = VoiceAssistantStateTracker(ha_client, room_name)
+        logger.info(f"State tracker initialized: {state_tracker.entity_id}")
     else:
         logger.warning("Home Assistant credentials not found. Smart home features disabled.")
 
@@ -155,7 +162,8 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         wake_words=["alexa"],                 # Use alexa for now (hey_jarvis requires custom model)
         threshold=0.5,                        # Confidence threshold (0.3-0.7)
         keepalive_timeout=5.0,                # Stay awake for 5 seconds
-        inference_framework="onnx"            # ONNX supports Python 3.13
+        inference_framework="onnx",           # ONNX supports Python 3.13
+        state_tracker=state_tracker           # Pass state tracker for HA updates
     )
     logger.info("✅ Wake word processor ready")
 
@@ -163,24 +171,37 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     interrupt_handler = InterruptHandler(wake_processor)
     logger.info("✅ Interrupt handler ready")
 
+    # State tracking processor (if HA is enabled)
+    state_processor = None
+    if state_tracker:
+        state_processor = StateTrackingProcessor(state_tracker, wake_processor)
+        logger.info("✅ State tracking processor ready")
+
     # Suppress harmless Deepgram finalization warnings
     import logging
     logging.getLogger("deepgram.clients.common.v1.abstract_async_websocket").setLevel(logging.CRITICAL)
 
-    pipeline = Pipeline(
-        [
-            transport.input(),  # Transport user input
-            rtvi,  # RTVI processor
-            wake_processor,  # Audio-based wake word detection
-            stt,  # Speech-to-Text (only processes when awake)
-            interrupt_handler,  # Detect interrupt commands (shut up, stop, etc.)
-            context_aggregator.user(),  # User responses
-            llm,  # LLM
-            tts,  # TTS
-            transport.output(),  # Transport bot output
-            context_aggregator.assistant(),  # Assistant spoken responses
-        ]
-    )
+    # Build pipeline with optional state tracker
+    pipeline_processors = [
+        transport.input(),  # Transport user input
+        rtvi,  # RTVI processor
+        wake_processor,  # Audio-based wake word detection
+    ]
+
+    if state_processor:
+        pipeline_processors.append(state_processor)  # State tracking (after wake detection)
+
+    pipeline_processors.extend([
+        stt,  # Speech-to-Text (only processes when awake)
+        interrupt_handler,  # Detect interrupt commands (shut up, stop, etc.)
+        context_aggregator.user(),  # User responses
+        llm,  # LLM
+        tts,  # TTS
+        transport.output(),  # Transport bot output
+        context_aggregator.assistant(),  # Assistant spoken responses
+    ])
+
+    pipeline = Pipeline(pipeline_processors)
 
     task = PipelineTask(
         pipeline,
@@ -235,6 +256,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
         logger.info(f"Client disconnected")
+        # Set state to offline
+        if state_tracker:
+            await state_tracker.on_offline()
         # Cancel all timers
         await timer_manager.cancel_all_timers()
         # Clean up Home Assistant connections
