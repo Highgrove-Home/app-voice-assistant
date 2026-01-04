@@ -14,6 +14,7 @@ from pipecat.frames.frames import (
     LLMMessagesFrame,
     TTSStartedFrame,
     TTSStoppedFrame,
+    TextFrame,
 )
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
@@ -41,6 +42,7 @@ class StateTrackingProcessor(FrameProcessor):
         self.state_tracker = state_tracker
         self.wake_processor = wake_processor
         self._last_state = None
+        self._current_assistant_message = ""  # Accumulate text chunks
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         """Process frames and update state based on activity."""
@@ -59,6 +61,7 @@ class StateTrackingProcessor(FrameProcessor):
         elif isinstance(frame, TranscriptionFrame):
             # Capture user transcription for conversation history
             if self.wake_processor._is_awake and frame.text:
+                logger.debug(f"Captured user message: {frame.text}")
                 self.state_tracker.add_user_message(frame.text)
 
         elif isinstance(frame, UserStoppedSpeakingFrame):
@@ -66,14 +69,27 @@ class StateTrackingProcessor(FrameProcessor):
             if self.wake_processor._is_awake:
                 await self.state_tracker.on_processing()
 
+        elif isinstance(frame, TextFrame):
+            # Accumulate text chunks from the assistant's response
+            if frame.text:
+                self._current_assistant_message += frame.text
+
         elif isinstance(frame, TTSStartedFrame):
-            # Bot started speaking - capture message for history
+            # Bot started speaking
             await self.state_tracker.on_speaking()
-            if hasattr(frame, 'text') and frame.text:
-                self.state_tracker.add_assistant_message(frame.text)
+            # Reset message accumulator at start of TTS
+            self._current_assistant_message = ""
 
         elif isinstance(frame, TTSStoppedFrame):
-            # Bot stopped speaking - now idle (still awake)
+            # Bot stopped speaking - save accumulated message to history
+            if self._current_assistant_message.strip():
+                logger.debug(f"Captured assistant message: {self._current_assistant_message.strip()}")
+                self.state_tracker.add_assistant_message(self._current_assistant_message.strip())
+                self._current_assistant_message = ""
+            else:
+                logger.debug("No assistant message to save (empty accumulator)")
+
+            # Now idle (still awake)
             if self.wake_processor._is_awake:
                 await self.state_tracker.on_idle()
 

@@ -256,6 +256,27 @@ class VoiceAssistantStateTracker:
         except Exception as e:
             logger.error(f"Failed to publish state to MQTT: {e}")
 
+    async def _publish_attributes_only(self):
+        """Publish updated attributes without changing state (for conversation history updates)."""
+        if not self._connected or not self._mqtt_client:
+            return
+
+        try:
+            attributes = {
+                "icon": self.STATE_ICONS[self.current_state],
+                "last_updated": datetime.now().isoformat(),
+                "room": self.room_name,
+                "conversation_history": self._conversation_history,
+            }
+            await self._mqtt_client.publish(
+                self.attributes_topic,
+                payload=json.dumps(attributes),
+                retain=True,
+            )
+            logger.debug("Published conversation history update")
+        except Exception as e:
+            logger.error(f"Failed to publish attributes: {e}")
+
     async def _publish_mute_state(self):
         """Publish current mute state to MQTT."""
         if not self._connected or not self._mqtt_client:
@@ -320,6 +341,8 @@ class VoiceAssistantStateTracker:
             message: The user's transcribed message
         """
         self._add_to_history("user", message)
+        # Trigger state update to publish history
+        asyncio.create_task(self._publish_attributes_only())
 
     def add_assistant_message(self, message: str):
         """Add an assistant message to conversation history.
@@ -328,6 +351,8 @@ class VoiceAssistantStateTracker:
             message: The assistant's response text
         """
         self._add_to_history("assistant", message)
+        # Trigger state update to publish history
+        asyncio.create_task(self._publish_attributes_only())
 
     def _add_to_history(self, role: str, message: str):
         """Add a message to conversation history, maintaining max size.
