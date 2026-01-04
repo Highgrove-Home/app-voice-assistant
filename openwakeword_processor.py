@@ -66,7 +66,7 @@ class OpenWakeWordProcessor(FrameProcessor):
             logger.error(f"Failed to initialize OpenWakeWord: {e}")
             raise
 
-    def set_muted(self, muted: bool):
+    async def set_muted(self, muted: bool):
         """Set mute state. When muted, wake word detection is disabled."""
         self._is_muted = muted
         if muted:
@@ -75,8 +75,16 @@ class OpenWakeWordProcessor(FrameProcessor):
             self._is_awake = False
             if self._keepalive_task:
                 self._keepalive_task.cancel()
+
+            # Notify state tracker if available
+            if self._state_tracker:
+                await self._state_tracker.on_muted()
         else:
             logger.info("🔊 Assistant UNMUTED - wake word detection enabled")
+
+            # Go back to standby when unmuted
+            if self._state_tracker:
+                await self._state_tracker.on_standby()
 
     def is_muted(self) -> bool:
         """Check if assistant is muted."""

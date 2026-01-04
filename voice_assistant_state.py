@@ -33,6 +33,7 @@ class VoiceAssistantStateTracker:
     STATE_PROCESSING = "processing"  # LLM thinking / function calls
     STATE_SPEAKING = "speaking"  # Bot generating/playing TTS
     STATE_IDLE = "idle"  # Awake but not active
+    STATE_MUTED = "muted"  # Assistant muted, wake word detection disabled
     STATE_OFFLINE = "offline"  # Disconnected
 
     # State icons for HA UI
@@ -42,6 +43,7 @@ class VoiceAssistantStateTracker:
         STATE_PROCESSING: "mdi:brain",
         STATE_SPEAKING: "mdi:speaker",
         STATE_IDLE: "mdi:account-voice",
+        STATE_MUTED: "mdi:microphone-off",
         STATE_OFFLINE: "mdi:close-circle",
     }
 
@@ -223,6 +225,10 @@ class VoiceAssistantStateTracker:
     async def on_idle(self):
         """Bot finished speaking, waiting for next command."""
         await self.set_state(self.STATE_IDLE)
+
+    async def on_muted(self):
+        """Assistant muted, wake word detection disabled."""
+        await self.set_state(self.STATE_MUTED)
 
     async def on_offline(self):
         """Client disconnected or service stopped."""

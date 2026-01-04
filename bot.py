@@ -189,7 +189,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         async def on_mute_state_changed(entity_id: str, new_state: str, old_state: str):
             """Handle mute switch state changes from Home Assistant."""
             is_muted = (new_state == "on")
-            wake_processor.set_muted(is_muted)
+            await wake_processor.set_muted(is_muted)
             logger.info(f"Mute switch changed: {old_state} -> {new_state} (muted={is_muted})")
 
         # Subscribe to state changes
@@ -199,7 +199,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         initial_state = await ha_client.get_state(mute_switch_id)
         if initial_state:
             is_initially_muted = (initial_state.get("state") == "on")
-            wake_processor.set_muted(is_initially_muted)
+            await wake_processor.set_muted(is_initially_muted)
             logger.info(f"Initial mute state: {is_initially_muted}")
 
     # Interrupt handler for detecting "shut up", "stop talking", etc.
